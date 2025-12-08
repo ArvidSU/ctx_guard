@@ -2,6 +2,12 @@
 name = "ctx_guard"
 version = "0.1.0"
 edition = "2021"
+authors = ["Arvid Sundqvist carlArvidSundqvist@gmail.com"]
+description = "A command wrapper that summarizes output for AI agents to prevent context window overflow"
+license = "MIT"
+repository = "https://github.com/ArvidSu/ctx_guard"
+keywords = ["cli", "ai", "agent", "context", "engineering", "summary", "command-wrapper"]
+categories = ["command-line-utilities", "development-tools"]
 
 [lib]
 name = "ctx_guard"
