@@ -2,7 +2,7 @@ use clap::Parser;
 use ctx_guard::config::Config;
 use ctx_guard::executor::execute_command_string;
 use ctx_guard::llm::LlmClient;
-use ctx_guard::output::{format_fallback_output, generate_output_filename, write_output_file};
+use ctx_guard::output::{cleanup_old_files, format_fallback_output, generate_output_filename, write_output_file};
 use std::time::Instant;
 
 #[derive(Parser)]
@@ -27,6 +27,9 @@ async fn main() {
             Config::default()
         }
     };
+
+    // Clean up old temporary files
+    cleanup_old_files(config.clean_up_days);
 
     // Check if command is disabled
     if config.is_command_disabled(&command_str) {
@@ -57,7 +60,7 @@ async fn main() {
     };
     let output_file_duration = output_file_start_time.elapsed();
 
-    // Get summary words for this command
+    // Get summary words for this command   
     let summary_words = config.get_summary_words(&command_str);
 
     // Generate summary

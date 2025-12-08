@@ -95,12 +95,18 @@ fn default_summary_words() -> u32 {
     100
 }
 
+fn default_clean_up_days() -> u32 {
+    5
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub provider: ProviderConfig,
     #[serde(default)]
     pub commands: HashMap<String, CommandOverride>,
+    #[serde(default = "default_clean_up_days")]
+    pub clean_up_days: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,6 +127,7 @@ impl Default for Config {
                 summary_words: default_summary_words(),
             },
             commands: HashMap::new(),
+            clean_up_days: default_clean_up_days(),
         }
     }
 }
@@ -205,6 +212,7 @@ mod tests {
         assert_eq!(config.provider.model, "local-model");
         assert_eq!(config.provider.summary_words, 100);
         assert!(config.commands.is_empty());
+        assert_eq!(config.clean_up_days, 5);
     }
 
     #[test]

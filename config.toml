@@ -1,3 +1,6 @@
+# Number of days to keep temporary output files before cleaning them up
+clean_up_days = 5
+
 # The provider to use for the summary generation
 [provider]
 type = "lmstudio"
