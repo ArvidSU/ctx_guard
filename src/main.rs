@@ -72,7 +72,7 @@ async fn main() {
         let prompt = config.format_prompt(&command_str, result.exit_code, &result.combined_output, summary_words);
         
         let llm_client = LlmClient::new(&config.provider.url);
-        match llm_client.summarize(&prompt).await {
+        match llm_client.summarize(&config.provider.model, &prompt).await {
             Ok(summary) => {
                 summary
             }

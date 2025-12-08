@@ -2,6 +2,7 @@
 [provider]
 type = "lmstudio"
 url = "http://127.0.0.1:1234"
+model = "qwen/qwen3-vl-4b"
 
 prompt = """
 You are a command output analyzer that provides concise, actionable summaries for AI agents.

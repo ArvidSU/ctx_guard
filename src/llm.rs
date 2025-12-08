@@ -49,11 +49,11 @@ impl LlmClient {
         }
     }
 
-    pub async fn summarize(&self, prompt: &str) -> Result<String, LlmError> {
+    pub async fn summarize(&self, model: &str, prompt: &str) -> Result<String, LlmError> {
         let url = format!("{}/v1/chat/completions", self.base_url);
         
         let request = ChatRequest {
-            model: "local-model".to_string(),
+            model: model.to_string(),
             messages: vec![ChatMessage {
                 role: "user".to_string(),
                 content: prompt.to_string(),

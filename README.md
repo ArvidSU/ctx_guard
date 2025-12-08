@@ -9,7 +9,7 @@ A Rust based command line tool that wraps commands, pipes the output to a tempor
 ## Installation
 
 ```bash
-cargo install ctx_guard
+cargo install --path .
 ```
 
 ## Configuration

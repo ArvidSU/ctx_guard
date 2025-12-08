@@ -21,6 +21,8 @@ pub struct ProviderConfig {
     pub r#type: String,
     #[serde(default = "default_provider_url")]
     pub url: String,
+    #[serde(default = "default_model")]
+    pub model: String,
     #[serde(default = "default_prompt")]
     pub prompt: String,
     #[serde(default = "default_summary_words")]
@@ -32,6 +34,7 @@ impl Default for ProviderConfig {
         Self {
             r#type: default_provider_type(),
             url: default_provider_url(),
+            model: default_model(),
             prompt: default_prompt(),
             summary_words: default_summary_words(),
         }
@@ -44,6 +47,10 @@ fn default_provider_type() -> String {
 
 fn default_provider_url() -> String {
     "http://127.0.0.1:1234".to_string()
+}
+
+fn default_model() -> String {
+    "local-model".to_string()
 }
 
 fn default_prompt() -> String {
@@ -109,6 +116,7 @@ impl Default for Config {
             provider: ProviderConfig {
                 r#type: default_provider_type(),
                 url: default_provider_url(),
+                model: default_model(),
                 prompt: default_prompt(),
                 summary_words: default_summary_words(),
             },
@@ -182,6 +190,7 @@ mod tests {
         let config = ProviderConfig::default();
         assert_eq!(config.r#type, "lmstudio");
         assert_eq!(config.url, "http://127.0.0.1:1234");
+        assert_eq!(config.model, "local-model");
         assert!(config.prompt.contains("${command}"));
         assert!(config.prompt.contains("${exit_code}"));
         assert!(config.prompt.contains("${output}"));
@@ -193,6 +202,7 @@ mod tests {
     fn test_config_default() {
         let config = Config::default();
         assert_eq!(config.provider.r#type, "lmstudio");
+        assert_eq!(config.provider.model, "local-model");
         assert_eq!(config.provider.summary_words, 100);
         assert!(config.commands.is_empty());
     }
@@ -255,6 +265,7 @@ mod tests {
 [provider]
 type = "lmstudio"
 url = "http://localhost:8080"
+model = "custom-model"
 summary_words = 50
 
 [commands]
@@ -264,6 +275,7 @@ summary_words = 50
         
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.provider.url, "http://localhost:8080");
+        assert_eq!(config.provider.model, "custom-model");
         assert_eq!(config.provider.summary_words, 50);
         assert_eq!(config.get_summary_words("npx jest"), 200);
         assert!(config.is_command_disabled("curl -v https://example.com"));
