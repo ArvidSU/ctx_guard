@@ -56,6 +56,8 @@ fn default_model() -> String {
 fn default_prompt() -> String {
     r#"You are a command output analyzer that provides concise, actionable summaries for AI agents.
 
+${recent_commands}
+
 Command executed: ${command}
 Exit code: ${exit_code}
 Output:
@@ -99,6 +101,10 @@ fn default_clean_up_days() -> u32 {
     5
 }
 
+fn default_command_context_minutes() -> u32 {
+    0
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
@@ -107,6 +113,8 @@ pub struct Config {
     pub commands: HashMap<String, CommandOverride>,
     #[serde(default = "default_clean_up_days")]
     pub clean_up_days: u32,
+    #[serde(default = "default_command_context_minutes")]
+    pub command_context_minutes: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,6 +136,7 @@ impl Default for Config {
             },
             commands: HashMap::new(),
             clean_up_days: default_clean_up_days(),
+            command_context_minutes: default_command_context_minutes(),
         }
     }
 }
@@ -171,8 +180,25 @@ impl Config {
         }
     }
 
-    pub fn format_prompt(&self, command: &str, exit_code: i32, output: &str, summary_words: u32) -> String {
+    pub fn format_prompt(&self, command: &str, exit_code: i32, output: &str, summary_words: u32, recent_commands: Option<&[(String, i32)]>) -> String {
+        let recent_commands_text = if let Some(commands) = recent_commands {
+            if commands.is_empty() {
+                String::new()
+            } else {
+                let commands_list: Vec<String> = commands.iter()
+                    .map(|(cmd, code)| {
+                        let status = if *code == 0 { "succeeded" } else { "failed" };
+                        format!("- {}, {}", cmd, status)
+                    })
+                    .collect();
+                format!("recently run commands:\n{}\n\n", commands_list.join("\n"))
+            }
+        } else {
+            String::new()
+        };
+
         self.provider.prompt
+            .replace("${recent_commands}", &recent_commands_text)
             .replace("${command}", command)
             .replace("${exit_code}", &exit_code.to_string())
             .replace("${output}", output)
@@ -218,7 +244,7 @@ mod tests {
     #[test]
     fn test_format_prompt() {
         let config = Config::default();
-        let prompt = config.format_prompt("echo hello", 0, "hello", 50);
+        let prompt = config.format_prompt("echo hello", 0, "hello", 50, None);
         
         assert!(prompt.contains("echo hello"));
         assert!(prompt.contains("0"));
@@ -228,6 +254,24 @@ mod tests {
         assert!(!prompt.contains("${exit_code}"));
         assert!(!prompt.contains("${output}"));
         assert!(!prompt.contains("${summary_words}"));
+    }
+
+    #[test]
+    fn test_format_prompt_with_recent_commands() {
+        let config = Config::default();
+        let recent = vec![
+            ("cd workspace".to_string(), 0),
+            ("ls".to_string(), 0),
+            ("npx jest".to_string(), 1),
+        ];
+        let prompt = config.format_prompt("npm run build", 0, "output", 50, Some(&recent));
+        
+        assert!(prompt.contains("recently run commands"));
+        assert!(prompt.contains("cd workspace"));
+        assert!(prompt.contains("succeeded"));
+        assert!(prompt.contains("npx jest"));
+        assert!(prompt.contains("failed"));
+        assert!(prompt.contains("npm run build"));
     }
 
     #[test]

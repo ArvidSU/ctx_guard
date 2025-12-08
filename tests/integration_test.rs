@@ -73,7 +73,7 @@ fn test_output_file_creation() {
     let filename = "test_integration.txt";
     let content = "integration test content";
     
-    let result = output::write_output_file(filename, content);
+    let result = output::write_output_file(filename, content, None);
     assert!(result.is_ok());
     
     let file_path = result.unwrap();

@@ -1,4 +1,4 @@
-use chrono::{Local, NaiveDateTime, TimeZone};
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -10,6 +10,16 @@ pub enum OutputError {
 }
 
 const OUTPUT_DIR: &str = "/tmp/ctx_guard";
+const METADATA_START: &str = "---CTX_GUARD_METADATA---";
+const METADATA_END: &str = "---END_METADATA---";
+
+#[derive(Debug, Clone)]
+pub struct CommandMetadata {
+    pub command: String,
+    pub exit_code: i32,
+    pub timestamp: DateTime<Local>,
+    pub summary: Option<String>,
+}
 
 pub fn ensure_output_dir() -> Result<PathBuf, OutputError> {
     let dir = Path::new(OUTPUT_DIR);
@@ -41,11 +51,182 @@ pub fn generate_output_filename(command: &str) -> String {
     format!("{command_slug}_{timestamp}.txt")
 }
 
-pub fn write_output_file(filename: &str, content: &str) -> Result<PathBuf, OutputError> {
+fn format_metadata(metadata: &CommandMetadata) -> String {
+    let summary_line = if let Some(ref summary) = metadata.summary {
+        format!("summary: {}\n", summary.replace('\n', " ").replace('\r', " "))
+    } else {
+        "summary: \n".to_string()
+    };
+    
+    format!(
+        "{}\ncommand: {}\nexit_code: {}\ntimestamp: {}\n{}\n{}\n",
+        METADATA_START,
+        metadata.command,
+        metadata.exit_code,
+        metadata.timestamp.to_rfc3339(),
+        summary_line,
+        METADATA_END
+    )
+}
+
+pub fn write_output_file(filename: &str, content: &str, metadata: Option<&CommandMetadata>) -> Result<PathBuf, OutputError> {
     let dir = ensure_output_dir()?;
     let file_path = dir.join(filename);
-    fs::write(&file_path, content)?;
+    
+    let file_content = if let Some(meta) = metadata {
+        format!("{}\n\n{}", format_metadata(meta), content)
+    } else {
+        content.to_string()
+    };
+    
+    fs::write(&file_path, file_content)?;
     Ok(file_path)
+}
+
+pub fn parse_metadata_from_file(file_path: &Path) -> Option<CommandMetadata> {
+    let content = match fs::read_to_string(file_path) {
+        Ok(c) => c,
+        Err(_) => return None,
+    };
+    
+    if !content.starts_with(METADATA_START) {
+        return None;
+    }
+    
+    let metadata_end_pos = content.find(METADATA_END)?;
+    let metadata_section = &content[..metadata_end_pos + METADATA_END.len()];
+    
+    let mut command = None;
+    let mut exit_code = None;
+    let mut timestamp = None;
+    let mut summary = None;
+    
+    for line in metadata_section.lines() {
+        if line.starts_with("command: ") {
+            command = Some(line[9..].trim().to_string());
+        } else if line.starts_with("exit_code: ") {
+            exit_code = Some(line[11..].trim().parse().ok()?);
+        } else if line.starts_with("timestamp: ") {
+            timestamp = DateTime::parse_from_rfc3339(line[11..].trim())
+                .ok()
+                .map(|dt| dt.with_timezone(&Local));
+        } else if line.starts_with("summary: ") {
+            let summary_text = line[9..].trim();
+            summary = if summary_text.is_empty() {
+                None
+            } else {
+                Some(summary_text.to_string())
+            };
+        }
+    }
+    
+    Some(CommandMetadata {
+        command: command?,
+        exit_code: exit_code?,
+        timestamp: timestamp?,
+        summary,
+    })
+}
+
+pub fn get_recent_commands(minutes: u32) -> Vec<(String, i32, DateTime<Local>)> {
+    let output_dir = match ensure_output_dir() {
+        Ok(dir) => dir,
+        Err(_) => {
+            eprintln!("DEBUG: Failed to get output directory");
+            return Vec::new();
+        },
+    };
+    
+    let now = Local::now();
+    let cutoff_time = now - chrono::Duration::minutes(minutes as i64);
+    
+    let entries = match fs::read_dir(&output_dir) {
+        Ok(entries) => entries,
+        Err(e) => {
+            eprintln!("DEBUG: Failed to read directory: {}", e);
+            return Vec::new();
+        },
+    };
+    
+    let mut recent_commands = Vec::new();
+    
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        
+        let path = entry.path();
+        if !path.is_file() || !path.to_string_lossy().ends_with(".txt") {
+            continue;
+        }
+        
+        let metadata = match parse_metadata_from_file(&path) {
+            Some(m) => m,
+            None => continue,
+        };
+        
+        // Only include commands within the time window
+        if metadata.timestamp >= cutoff_time {
+            recent_commands.push((metadata.command, metadata.exit_code, metadata.timestamp));
+        }
+    }
+    
+    // Sort chronologically (oldest first)
+    recent_commands.sort_by_key(|(_, _, timestamp)| *timestamp);
+    
+    recent_commands
+}
+
+pub fn update_output_file_summary(file_path: &PathBuf, summary: &str) -> Result<(), OutputError> {
+    let content = fs::read_to_string(file_path)?;
+    
+    if !content.starts_with(METADATA_START) {
+        // File doesn't have metadata, can't update
+        return Ok(());
+    }
+    
+    let metadata_end_pos = match content.find(METADATA_END) {
+        Some(pos) => pos,
+        None => return Ok(()),
+    };
+    
+    let metadata_section = &content[..metadata_end_pos + METADATA_END.len()];
+    let output_section = &content[metadata_end_pos + METADATA_END.len()..];
+    
+    // Parse existing metadata
+    let mut command = None;
+    let mut exit_code = None;
+    let mut timestamp = None;
+    
+    for line in metadata_section.lines() {
+        if line.starts_with("command: ") {
+            command = Some(line[9..].trim().to_string());
+        } else if line.starts_with("exit_code: ") {
+            exit_code = line[11..].trim().parse().ok();
+        } else if line.starts_with("timestamp: ") {
+            timestamp = DateTime::parse_from_rfc3339(line[11..].trim())
+                .ok()
+                .map(|dt| dt.with_timezone(&Local));
+        }
+    }
+    
+    if let (Some(cmd), Some(code), Some(ts)) = (command, exit_code, timestamp) {
+        let updated_metadata = CommandMetadata {
+            command: cmd,
+            exit_code: code,
+            timestamp: ts,
+            summary: Some(summary.to_string()),
+        };
+        
+        let updated_content = format!("{}\n\n{}", format_metadata(&updated_metadata), output_section.trim_start_matches('\n'));
+        fs::write(file_path, updated_content)?;
+    } else {
+        // If we can't parse the metadata, we can't update it
+        return Ok(());
+    }
+    
+    Ok(())
 }
 
 pub fn format_fallback_output(output: &str, max_lines: usize) -> String {
@@ -236,7 +417,7 @@ mod tests {
         let filename = "test_output.txt";
         let content = "test content";
         
-        let result = write_output_file(filename, content);
+        let result = write_output_file(filename, content, None);
         assert!(result.is_ok());
         
         let file_path = result.unwrap();
@@ -244,6 +425,56 @@ mod tests {
         
         let read_content = fs::read_to_string(&file_path).unwrap();
         assert_eq!(read_content, content);
+        
+        // Cleanup
+        let _ = fs::remove_file(&file_path);
+    }
+
+    #[test]
+    fn test_write_output_file_with_metadata() {
+        let filename = "test_output_metadata.txt";
+        let content = "test content";
+        let metadata = CommandMetadata {
+            command: "echo test".to_string(),
+            exit_code: 0,
+            timestamp: Local::now(),
+            summary: None,
+        };
+        
+        let result = write_output_file(filename, content, Some(&metadata));
+        assert!(result.is_ok());
+        
+        let file_path = result.unwrap();
+        assert!(file_path.exists());
+        
+        let read_content = fs::read_to_string(&file_path).unwrap();
+        assert!(read_content.contains(METADATA_START));
+        assert!(read_content.contains("command: echo test"));
+        assert!(read_content.contains("exit_code: 0"));
+        assert!(read_content.contains("test content"));
+        
+        // Cleanup
+        let _ = fs::remove_file(&file_path);
+    }
+
+    #[test]
+    fn test_parse_metadata_from_file() {
+        let filename = "test_parse_metadata.txt";
+        let metadata = CommandMetadata {
+            command: "ls -la".to_string(),
+            exit_code: 0,
+            timestamp: Local::now(),
+            summary: Some("Listed files".to_string()),
+        };
+        
+        let file_path = write_output_file(filename, "output content", Some(&metadata)).unwrap();
+        
+        let parsed = parse_metadata_from_file(&file_path);
+        assert!(parsed.is_some());
+        let parsed_meta = parsed.unwrap();
+        assert_eq!(parsed_meta.command, "ls -la");
+        assert_eq!(parsed_meta.exit_code, 0);
+        assert_eq!(parsed_meta.summary, Some("Listed files".to_string()));
         
         // Cleanup
         let _ = fs::remove_file(&file_path);

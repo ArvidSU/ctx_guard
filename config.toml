@@ -1,6 +1,9 @@
 # Number of days to keep temporary output files before cleaning them up
 clean_up_days = 5
 
+# Number of minutes to look back for command context (0 = disabled)
+command_context_minutes = 10
+
 # The provider to use for the summary generation
 [provider]
 type = "lmstudio"
@@ -9,6 +12,8 @@ model = "qwen/qwen3-vl-4b"
 
 prompt = """
 You are a command output analyzer that provides concise, actionable summaries for AI agents.
+
+${recent_commands}
 
 Command executed: ${command}
 Exit code: ${exit_code}

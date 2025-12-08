@@ -2,7 +2,8 @@ use clap::Parser;
 use ctx_guard::config::Config;
 use ctx_guard::executor::execute_command_string;
 use ctx_guard::llm::LlmClient;
-use ctx_guard::output::{cleanup_old_files, format_fallback_output, generate_output_filename, write_output_file};
+use ctx_guard::output::{cleanup_old_files, format_fallback_output, generate_output_filename, write_output_file, get_recent_commands, update_output_file_summary, CommandMetadata};
+use chrono::Local;
 use std::time::Instant;
 
 #[derive(Parser)]
@@ -48,10 +49,16 @@ async fn main() {
     };
     let cmd_exec_duration = cmd_exec_start_time.elapsed();
 
-    // Write output to temp file
+    // Write output to temp file with metadata (initially without summary)
     let output_file_start_time = Instant::now();
     let filename = generate_output_filename(&command_str);
-    let output_path = match write_output_file(&filename, &result.combined_output) {
+    let metadata = CommandMetadata {
+        command: command_str.clone(),
+        exit_code: result.exit_code,
+        timestamp: Local::now(),
+        summary: None,
+    };
+    let output_path = match write_output_file(&filename, &result.combined_output, Some(&metadata)) {
         Ok(path) => path,
         Err(e) => {
             eprintln!("Error writing output file: {}", e);
@@ -63,6 +70,18 @@ async fn main() {
     // Get summary words for this command   
     let summary_words = config.get_summary_words(&command_str);
 
+    // Get recent commands if command_context_minutes is enabled
+    let recent_commands: Option<Vec<(String, i32)>> = if config.command_context_minutes > 0 {
+        let recent = get_recent_commands(config.command_context_minutes);
+        if recent.is_empty() {
+            None
+        } else {
+            Some(recent.iter().map(|(cmd, code, _)| (cmd.clone(), *code)).collect())
+        }
+    } else {
+        None
+    };
+
     // Generate summary
     let summary_start_time = Instant::now();
     let summary = if result.combined_output.trim().is_empty() {
@@ -72,7 +91,8 @@ async fn main() {
             format!("Command failed after {:.1} seconds with exit code {} and no output.", cmd_exec_duration.as_secs_f64(), result.exit_code)
         }
     } else {
-        let prompt = config.format_prompt(&command_str, result.exit_code, &result.combined_output, summary_words);
+        let recent_commands_ref = recent_commands.as_ref().map(|v| v.as_slice());
+        let prompt = config.format_prompt(&command_str, result.exit_code, &result.combined_output, summary_words, recent_commands_ref);
         
         let llm_client = LlmClient::new(&config.provider.url);
         match llm_client.summarize(&config.provider.model, &prompt).await {
@@ -97,6 +117,11 @@ async fn main() {
         }
     };
     let summary_duration = summary_start_time.elapsed();
+
+    // Update output file with summary in metadata
+    if let Err(e) = update_output_file_summary(&output_path, &summary) {
+        eprintln!("Warning: Failed to update output file with summary: {}", e);
+    }
 
     // Print summary and file path
     println!("{}", summary);
