@@ -51,6 +51,9 @@ Remember: This summary will help an AI agent decide whether to investigate the f
 """
 
 summary_words = 100
+# Minimum output length (in words) before generating a summary. Outputs
+# shorter than this (or the summary length) are returned directly.
+output_length_threshold = 100
 
 # Per-command configuration
 [commands]

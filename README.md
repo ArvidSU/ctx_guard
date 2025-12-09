@@ -18,6 +18,10 @@ Edit the configuration file at:
 ~/.ctx_guard/config.toml
 ```
 
+Key options:
+- `summary_words`: maximum words in generated summaries (defaults to 100).
+- `output_length_threshold`: minimum output length (in words) required before calling the LLM. Outputs shorter than this (or the summary length) are returned directly instead of being summarized.
+
 ## Usage
 
 ```bash

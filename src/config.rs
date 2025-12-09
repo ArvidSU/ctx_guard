@@ -27,6 +27,8 @@ pub struct ProviderConfig {
     pub prompt: String,
     #[serde(default = "default_summary_words")]
     pub summary_words: u32,
+    #[serde(default = "default_output_length_threshold")]
+    pub output_length_threshold: u32,
 }
 
 impl Default for ProviderConfig {
@@ -37,6 +39,7 @@ impl Default for ProviderConfig {
             model: default_model(),
             prompt: default_prompt(),
             summary_words: default_summary_words(),
+            output_length_threshold: default_output_length_threshold(),
         }
     }
 }
@@ -97,6 +100,10 @@ fn default_summary_words() -> u32 {
     100
 }
 
+fn default_output_length_threshold() -> u32 {
+    default_summary_words()
+}
+
 fn default_clean_up_days() -> u32 {
     5
 }
@@ -133,6 +140,7 @@ impl Default for Config {
                 model: default_model(),
                 prompt: default_prompt(),
                 summary_words: default_summary_words(),
+                output_length_threshold: default_output_length_threshold(),
             },
             commands: HashMap::new(),
             clean_up_days: default_clean_up_days(),
@@ -143,7 +151,11 @@ impl Default for Config {
 
 impl Config {
     pub fn load() -> Result<Self, ConfigError> {
-        let config_path = get_config_path();
+        Self::load_from_path(None)
+    }
+
+    pub fn load_from_path(config_path: Option<PathBuf>) -> Result<Self, ConfigError> {
+        let config_path = config_path.unwrap_or_else(get_config_path);
         
         if !config_path.exists() {
             // Create the config directory if it doesn't exist
@@ -169,6 +181,16 @@ impl Config {
         } else {
             self.provider.summary_words
         }
+    }
+
+    /// Returns the minimum output length (in words) required before we attempt
+    /// to generate a summary. This is always at least the configured summary length
+    /// to avoid summarizing outputs that are already shorter than the summary.
+    pub fn get_output_length_threshold(&self, command: &str) -> u32 {
+        let summary_words = self.get_summary_words(command);
+        self.provider
+            .output_length_threshold
+            .max(summary_words)
     }
 
     pub fn is_command_disabled(&self, command: &str) -> bool {
@@ -229,6 +251,7 @@ mod tests {
         assert!(config.prompt.contains("${output}"));
         assert!(config.prompt.contains("${summary_words}"));
         assert_eq!(config.summary_words, 100);
+        assert_eq!(config.output_length_threshold, 100);
     }
 
     #[test]
@@ -237,6 +260,7 @@ mod tests {
         assert_eq!(config.provider.r#type, "lmstudio");
         assert_eq!(config.provider.model, "local-model");
         assert_eq!(config.provider.summary_words, 100);
+        assert_eq!(config.provider.output_length_threshold, 100);
         assert!(config.commands.is_empty());
         assert_eq!(config.clean_up_days, 5);
     }
@@ -292,6 +316,25 @@ mod tests {
     }
 
     #[test]
+    fn test_get_output_length_threshold_defaults_to_summary_length() {
+        let config = Config::default();
+        assert_eq!(config.get_output_length_threshold("any command"), 100);
+    }
+
+    #[test]
+    fn test_get_output_length_threshold_respects_maximum() {
+        let mut config = Config::default();
+        config.provider.summary_words = 150;
+        config.provider.output_length_threshold = 120;
+        // Threshold should never go below the summary length
+        assert_eq!(config.get_output_length_threshold("any command"), 150);
+
+        // If the configured threshold is higher, we keep it
+        config.provider.output_length_threshold = 200;
+        assert_eq!(config.get_output_length_threshold("any command"), 200);
+    }
+
+    #[test]
     fn test_is_command_disabled() {
         let mut config = Config::default();
         assert!(!config.is_command_disabled("some command"));
@@ -319,6 +362,7 @@ type = "lmstudio"
 url = "http://localhost:8080"
 model = "custom-model"
 summary_words = 50
+output_length_threshold = 75
 
 [commands]
 "npx jest".summary_words = 200
@@ -329,6 +373,9 @@ summary_words = 50
         assert_eq!(config.provider.url, "http://localhost:8080");
         assert_eq!(config.provider.model, "custom-model");
         assert_eq!(config.provider.summary_words, 50);
+        assert_eq!(config.provider.output_length_threshold, 75);
+        // Even with a lower threshold, we enforce the summary length floor
+        assert_eq!(config.get_output_length_threshold("npx jest"), 200);
         assert_eq!(config.get_summary_words("npx jest"), 200);
         assert!(config.is_command_disabled("curl -v https://example.com"));
     }
