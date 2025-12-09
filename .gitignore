@@ -95,5 +95,26 @@ $RECYCLE.BIN/
 
 # Logs
 *.log
+npm-debug.log*
+
+# Node / JavaScript
+node_modules/
+coverage/
 
 .cursor
+
+**/__pycache__/
+*.pyc
+venv/
+.venv/
+env/
+.envrc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+pip-wheel-metadata/
+site/
+evals/results/*
+evals/results.csv
+# Intentionally keep the data directory empty for the Python challenge
+evals/quality/fixtures/data/input.json

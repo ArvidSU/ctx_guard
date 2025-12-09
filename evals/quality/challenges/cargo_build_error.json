@@ -1,0 +1,16 @@
+{
+  "name": "Cargo Build Error",
+  "description": "Standalone crate fails to compile due to a type mismatch",
+  "command": "cargo build --manifest-path evals/quality/fixtures/cargo_failure/Cargo.toml",
+  "expected_issue": "mismatched types",
+  "expected_solution": "fix expected i32 found &str",
+  "key_phrases": [
+    "error[E0308]",
+    "expected `i32`",
+    "found `&str`",
+    "cargo_failure/src/main.rs",
+    "compilation failed"
+  ]
+}
+
+

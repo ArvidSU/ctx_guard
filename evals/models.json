@@ -1,0 +1,14 @@
+{
+  "openai/gpt-oss-20b": {
+    "provider_type": "lmstudio",
+    "provider_url": "http://127.0.0.1:1234",
+    "summary_words": 100
+  },
+  "qwen/qwen3-vl-4b": {
+    "provider_type": "lmstudio",
+    "provider_url": "http://127.0.0.1:1234",
+    "summary_words": 100
+  }
+}
+
+

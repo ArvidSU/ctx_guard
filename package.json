@@ -1,0 +1,13 @@
+{
+  "name": "ctx_guard-evals",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fixtures for ctx_guard evaluation challenges",
+  "scripts": {
+    "test": "jest --runInBand"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
+

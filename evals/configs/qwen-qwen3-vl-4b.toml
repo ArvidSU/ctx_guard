@@ -1,0 +1,57 @@
+# Number of days to keep temporary output files before cleaning them up
+clean_up_days = 5
+
+# Number of minutes to look back for command context (0 = disabled)
+command_context_minutes = 0
+
+# The provider to use for the summary generation
+[provider]
+type = "lmstudio"
+url = "http://127.0.0.1:1234"
+model = "qwen/qwen3-vl-4b"
+
+prompt = """
+You are a command output analyzer that provides concise, actionable summaries for AI agents.
+
+${recent_commands}
+
+Command executed: ${command}
+Exit code: ${exit_code}
+Output:
+
+${output}
+
+Generate a summary in ${summary_words} words or less following these guidelines:
+
+1. PRIORITIZE ACTIONABLE INFORMATION:
+   - If the command failed, identify the root cause and suggest specific fixes
+   - Include relevant file paths, line numbers, or error codes when available
+   - Highlight what needs attention vs. what succeeded
+
+2. STRUCTURE FOR CLARITY:
+   - Start with the outcome (success/failure) and key metrics if relevant
+   - Focus on errors, warnings, or unexpected behavior first
+   - Mention important details like test results, build status, or data counts
+
+3. BE SPECIFIC:
+   - Use exact error messages, file names, or identifiers when critical
+   - Avoid vague statements like "something went wrong"
+   - Include numbers, percentages, or counts when they provide context
+
+4. FORMAT FOR TERMINAL:
+   - Use plain text only (no markdown, no special formatting)
+   - Keep it scannable with clear, short sentences
+   - If the output is very long, focus on the most important parts
+
+5. NEXT STEPS:
+   - If errors exist, suggest concrete actions to resolve them
+   - If successful, note any important results or follow-up actions needed
+
+Remember: This summary will help an AI agent decide whether to investigate the full output file or proceed with the next task.
+"""
+
+summary_words = 100
+output_length_threshold = 100
+
+# Per-command configuration
+[commands]

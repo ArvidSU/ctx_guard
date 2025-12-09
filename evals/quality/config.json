@@ -1,0 +1,12 @@
+{
+  "models": {
+    "openai/gpt-oss-20b": {
+      "config_files": ["openai-gpt-oss-20b.toml"]
+    },
+    "qwen/qwen3-vl-4b": {
+      "config_files": ["qwen-qwen3-vl-4b.toml"]
+    }
+  }
+}
+
+

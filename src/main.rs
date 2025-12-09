@@ -11,6 +11,10 @@ use std::time::Instant;
 #[command(name = "cg")]
 #[command(about = "Context guard - wrap commands and summarize output for AI agents")]
 struct Args {
+    /// Force summarization even if output is short
+    #[arg(long = "force-summary", default_value_t = false)]
+    force_summary: bool,
+
     /// Path to configuration file (default: ~/.ctx_guard/config.toml)
     #[arg(short = 'c', long = "config")]
     config: Option<PathBuf>,
@@ -100,7 +104,7 @@ async fn main() {
         let output_text = result.combined_output.trim();
         let output_word_count = output_text.split_whitespace().count() as u32;
 
-        if output_word_count <= output_length_threshold {
+        if !args.force_summary && output_word_count <= output_length_threshold {
             let status = if result.is_success() {
                 "succeeded"
             } else {

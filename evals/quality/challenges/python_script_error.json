@@ -1,0 +1,16 @@
+{
+  "name": "Python Script Error",
+  "description": "Python ETL script aborts when required input file is missing",
+  "command": "python script.py",
+  "expected_issue": "required input file is missing",
+  "expected_solution": "add evals/quality/fixtures/data/input.json",
+  "key_phrases": [
+    "FileNotFoundError",
+    "evals/quality/fixtures/data/input.json",
+    "python",
+    "traceback",
+    "missing input data"
+  ]
+}
+
+

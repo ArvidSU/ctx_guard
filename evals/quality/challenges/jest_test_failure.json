@@ -1,0 +1,16 @@
+{
+  "name": "Jest Test Failure",
+  "description": "Authentication test fails when API token is missing",
+  "command": "npx jest --testPathPatterns=tests/auth.test.js --runInBand",
+  "expected_issue": "missing authentication token",
+  "expected_solution": "set API_TOKEN",
+  "key_phrases": [
+    "authentication token missing",
+    "API_TOKEN",
+    "auth.test.js",
+    "jest",
+    "failed"
+  ]
+}
+
+

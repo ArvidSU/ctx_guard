@@ -1,0 +1,15 @@
+{
+  "models": {
+    "openai/gpt-oss-20b": {
+      "max_tokens": 131072,
+      "config_files": ["openai-gpt-oss-20b.toml"]
+    },
+    "qwen/qwen3-vl-4b": {
+      "max_tokens": 131072,
+      "config_files": ["qwen-qwen3-vl-4b.toml"]
+    }
+  },
+  "size_factors": [0.1, 0.2, 0.5, 1.0]
+}
+
+
