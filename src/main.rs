@@ -7,6 +7,15 @@ use chrono::Local;
 use std::path::PathBuf;
 use std::time::Instant;
 
+fn strip_think_blocks(s: &str) -> String {
+    if let Some(end) = s.find("</think>") {
+        // Drop everything up to and including the first closing </think> tag.
+        s[end + "</think>".len()..].trim().to_string()
+    } else {
+        s.to_string()
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "cg")]
 #[command(about = "Context guard - wrap commands and summarize output for AI agents")]
@@ -124,8 +133,8 @@ async fn main() {
             
             let llm_client = LlmClient::new(&config.provider.url);
             match llm_client.summarize(&config.provider.model, &prompt).await {
-                Ok(summary) => {
-                    summary
+                Ok(raw_summary) => {
+                    strip_think_blocks(&raw_summary)
                 }
                 Err(_) => {
                     // Fallback to truncated output
